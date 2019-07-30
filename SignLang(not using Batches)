@@ -1,0 +1,115 @@
+import tensorflow as tf
+!pip install tensornets
+import tensornets as nets
+
+from google.colab import drive
+drive.mount('/content/drive')
+
+!mkdir train  
+!mkdir test  
+
+!unrar x "drive/My Drive/dataset.rar" -d train/  
+
+
+import numpy as np
+import pickle
+from sklearn.model_selection import train_test_split
+import tensorboard
+import tflearn as tf
+import os
+import glob
+import cv2
+import image
+import csv
+import tensornets as nets 
+from tqdm import tqdm
+
+labels = []
+labels_matrix = np.zeros([411, 2])
+label_number = 0
+files_size_list = []
+train_images = []
+img_name = ""
+trainpath = "./train/asl_alphabet_train"
+
+classnames = {"0": 0, "1": 1,
+              "2": 2, "3": 3,
+              "4": 4, "5": 5,
+              "6": 6, "7": 7,
+              "8": 8, "9": 9, "Q":10, "R":11, "S":12, "T":13,
+              "U":14, "V":15, "W":16, "X":17, "Y":18,"Z":19,
+              "del":20, "nothing":21, "space":22}
+
+for file in tqdm(os.listdir(trainpath)):
+  label=np.zeros((23))
+  #read and resize all train images
+  newtrainpath=trainpath+"/"+file
+  n=0
+  for imgname in tqdm(os.listdir(newtrainpath)):
+      full_path = newtrainpath + "/" + imgname
+      #print(full_path)
+      
+      index = classnames[file]
+      label[index]=1
+      print("classname :",file , " Label : ", label)
+      
+      image = cv2.imread(full_path)
+      if image.all() == None:
+        continue
+      if n >=50:
+        continue
+      n += 1
+      #print(image.shape)
+      h,w,c=image.shape
+      if c == 3:
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        #print(image.shape)
+      #image = np.reshape(image, (100, 100, 1))
+      image = np.resize(image, (100, 100,1))
+      assert image.shape == (100, 100, 1)
+      #print(image.shape)
+      train_images.append([np.array(image)])
+      labels.append(label)
+      
+import tensorflow as tf
+import tensornets as nets
+
+inputs = tf.placeholder(tf.float32, [None, 100, 100, 1], name = 'inpX')
+outputs = tf.placeholder(tf.float32, [None, 23], name = 'inpY')
+
+#logits = nets.VGG19()
+logits = nets.VGG19(inputs, is_training=True, classes=23)
+#logits= nets.DenseNet121([50,50,1][10][20][2])
+
+#logits = tf.layers.dense(inputs=outputs, units=2)
+model = tf.identity(logits, name='logits')
+
+loss = tf.losses.softmax_cross_entropy(outputs, logits)
+train = tf.train.AdamOptimizer(learning_rate=1e-5).minimize(loss)
+
+correct_pred = tf.equal(tf.argmax(model, 1), tf.argmax(outputs, 1))
+accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32), name='accuracy')
+
+init = tf.global_variables_initializer()
+
+saver = tf.train.Saver()
+
+print(len(train_images))
+
+print(len(labels))
+
+with tf.Session() as sess:
+  sess.run(init)
+  train_images = np.asarray(train_images)
+  train_images = np.reshape(train_images, (len(train_images), 100, 100, 1))
+  
+  #sess.run(logits.pretrained())
+  acc = 0
+  batch_size = 64
+  size = 0
+  for i in range(100):
+    acc += sess.run(accuracy, {inputs: train_images, outputs: labels})
+    
+  print(acc/100)
+  save_path = saver.save(sess, "./model.ckpt")
+
