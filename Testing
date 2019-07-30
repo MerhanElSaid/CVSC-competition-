@@ -1,0 +1,24 @@
+import tensorflow as tf
+import cv2
+import numpy as np
+
+graph = tf.get_default_graph()
+with tf.Session() as sess:
+  saver = tf.train.import_meta_graph('./model.ckpt.meta')
+  saver.restore(sess, "./model.ckpt")
+  loaded_x = graph.get_tensor_by_name('inpX:0')
+  loaded_y = graph.get_tensor_by_name('inpY:0')
+  loaded_logits = graph.get_tensor_by_name('logits:0')
+  loaded_acc = graph.get_tensor_by_name('accuracy:0')
+
+  image_test = cv2.imread('IMG_4050.JPG')
+  print(image_test.shape)
+  h,w,c=image_test.shape
+  if c == 3:
+    print("3d")
+    image_test = cv2.cvtColor(image_test, cv2.COLOR_BGR2GRAY)
+    image_test = np.resize(image_test, (100, 100))
+    image_test = np.reshape(image_test, (1, 100, 100, 1))
+  answer = sess.run(tf.nn.softmax(loaded_logits), feed_dict={loaded_x: image_test})
+  print(tf.argmax(answer[0]))
+  print(np.argmax(answer))
